@@ -2,7 +2,7 @@
   "name": "kaneo-branches",
   "displayName": "Kaneo — Start Work",
   "description": "Panel Kaneo estilo Jira/Atlassian: tareas por columna, KQL, Start Work con prefix, origin y push.",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "publisher": "hhhh",
   "license": "MIT",
   "repository": {
@@ -11,7 +11,10 @@
   },
   "scripts": {
     "package": "bash scripts/package.sh",
+    "package:neovim": "bash scripts/package-neovim.sh",
+    "package:all": "bash scripts/package.sh && bash scripts/package-neovim.sh",
     "install:vsix": "bash scripts/install-vsix.sh",
+    "install:neovim": "bash scripts/install-neovim.sh",
     "install:dev": "bash install.sh"
   },
   "engines": {

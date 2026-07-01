@@ -9,3 +9,4 @@ dist/**
 install.sh
 .gitignore
 scripts/**
+neovim/**

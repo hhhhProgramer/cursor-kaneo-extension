@@ -1,8 +1,16 @@
-name: Release VSIX
+name: Release Cursor (VSIX)
 
 on:
   push:
     branches: [main]
+    paths:
+      - "package.json"
+      - "src/**"
+      - "icons/**"
+      - "scripts/package.sh"
+      - "scripts/install-vsix.sh"
+      - ".vscodeignore"
+      - ".github/workflows/release-cursor.yml"
     tags:
       - "v*"
   workflow_dispatch:
@@ -40,7 +48,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vsix-v${{ steps.meta.outputs.version }}
-          path: dist/*.vsix
+          path: dist/kaneo-branches-*.vsix
           if-no-files-found: error
 
       - name: Ensure release tag on main
@@ -59,7 +67,7 @@ jobs:
             fi
             echo "Tag $TAG ya apunta a HEAD."
           else
-            git tag -a "$TAG" -m "Release $TAG"
+            git tag -a "$TAG" -m "Release $TAG (Cursor/VS Code)"
             git push origin "$TAG"
           fi
 
@@ -70,6 +78,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
-          files: dist/*.vsix
+          name: Cursor/VS Code v${{ steps.meta.outputs.version }}
+          files: dist/kaneo-branches-*.vsix
           generate_release_notes: true
           make_latest: true

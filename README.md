@@ -1,143 +1,131 @@
 # Kaneo — Start Work
 
-Extensión para **Cursor** y **VS Code** que conecta con [Kaneo](https://kaneo.app) self-hosted: panel de actividades estilo Jira/Atlassian, filtros KQL, detalle de tarea y **Start Work** (rama Git, push opcional, transición de estado).
+Monorepo con integraciones **Kaneo** self-hosted para **Cursor/VS Code** y **Neovim**: board de actividades, KQL, detalle de tarea y **Start Work** (rama Git, push opcional, transición de estado).
 
-Versión actual: **0.4.3**
+| Cliente | Versión | Release |
+|---------|---------|---------|
+| Cursor / VS Code | **0.4.4** | tag `v0.4.4` → `.vsix` |
+| Neovim | **0.1.0** | tag `nvim-v0.1.0` → `.tar.gz` |
 
-## Requisitos
+```
+cursor-kaneo-extension/
+├── src/              # extensión Cursor/VS Code
+├── neovim/           # plugin kaneo.nvim
+├── scripts/          # empaquetado e instalación
+└── .github/workflows/
+    ├── release-cursor.yml
+    └── release-neovim.yml
+```
 
-- Cursor ≥ 1.85 o VS Code ≥ 1.85
+## Requisitos comunes
+
 - VPN / acceso a tu instancia Kaneo
-- API key Kaneo (`kaneo.apiKey`, `API_KEY` o `~/.config/kaneo/api-key`)
-- Repositorio Git en el workspace (para Start Work)
+- API key: `~/.config/kaneo/api-key`, `KANEO_API_KEY` o setting del/work del cliente
+- Repositorio Git en el proyecto (Start Work)
 
-## Instalación
+---
 
-### Opción A — VSIX (recomendada)
+## Cursor / VS Code
 
-Descarga el `.vsix` del [último release](https://github.com/hhhhProgramer/cursor-kaneo-extension/releases) (`kaneo-branches-0.4.3.vsix`) e instálalo:
+Versión **0.4.4** · Requiere Cursor/VS Code ≥ 1.85
 
-**Cursor / VS Code (CLI):**
+### Instalar (VSIX)
 
-```bash
-cursor --install-extension kaneo-branches-0.4.3.vsix
-# o
-code --install-extension kaneo-branches-0.4.3.vsix
-```
-
-**Desde la UI:** Extensions → menú `…` → **Install from VSIX…** → elige el archivo.
-
-Luego **Developer: Reload Window**.
-
-### Opción B — Compilar e instalar desde el repo
+Descarga del [release Cursor v0.4.4](https://github.com/hhhhProgramer/cursor-kaneo-extension/releases/tag/v0.4.4):
 
 ```bash
-git clone https://github.com/hhhhProgramer/cursor-kaneo-extension.git
-cd cursor-kaneo-extension
-npm run package      # genera dist/kaneo-branches-<version>.vsix
-npm run install:vsix # instala el VSIX en cursor o code
-```
-
-### Opción C — Desarrollo (symlink)
-
-Para iterar sin empaquetar en cada cambio:
-
-```bash
-./install.sh
+cursor --install-extension kaneo-branches-0.4.4.vsix
 # Developer: Reload Window
 ```
 
-Enlaza el repo en `~/.cursor/extensions/hhhh.kaneo-branches-<version>`.
+### Desde el repo
 
-## Configuración
+```bash
+npm run package        # dist/kaneo-branches-<version>.vsix
+npm run install:vsix
+# o desarrollo:
+./install.sh
+```
 
-Copia `.vscode/settings.recommended.json` a tu `settings.json` o configura manualmente:
+Configuración en `settings.json` — ver `.vscode/settings.recommended.json`.
 
-```json
+---
+
+## Neovim
+
+Versión **0.1.0** · Requiere Neovim ≥ 0.9, `curl` y `git`
+
+Documentación detallada: [`neovim/README.md`](neovim/README.md)
+
+### Instalar (tarball para tu amigo)
+
+Descarga del [release Neovim v0.1.0](https://github.com/hhhhProgramer/cursor-kaneo-extension/releases/tag/nvim-v0.1.0):
+
+```bash
+curl -LO https://github.com/hhhhProgramer/cursor-kaneo-extension/releases/download/nvim-v0.1.0/kaneo-nvim-0.1.0.tar.gz
+mkdir -p ~/.local/share/nvim/site/pack/kaneo/start
+tar -xzf kaneo-nvim-0.1.0.tar.gz -C ~/.local/share/nvim/site/pack/kaneo/start
+```
+
+Reinicia Neovim → `:KaneoSelectProject` → `:KaneoBoard`
+
+### Desde el repo
+
+```bash
+npm run package:neovim
+npm run install:neovim
+```
+
+### lazy.nvim (monorepo)
+
+```lua
 {
-  "kaneo.apiBaseUrl": "http://10.8.0.1:8100",
-  "kaneo.apiKey": "",
-  "kaneo.workspaceId": "tu-workspace-id",
-  "kaneo.projectId": "tu-project-id",
-  "kaneo.userEmail": "tu@email.com",
-  "kaneo.branchPattern": "{slug}-{number}-{title}",
-  "kaneo.branchTypes": ["feature", "fix", "hotfix", "chore"],
-  "kaneo.moveToInProgressOnStartWork": true
+  dir = vim.fn.expand("~/Documentos/cursor-kaneo-extension/neovim"),
+  name = "kaneo.nvim",
+  cmd = { "KaneoBoard", "KaneoStartWork", "KaneoSelectProject", "KaneoRefresh" },
+  opts = {
+    api_base_url = "http://10.8.0.1:8100",
+    workspace_id = "tu-workspace-id",
+    project_id = "tu-project-id",
+    user_email = "tu@email.com",
+    push_on_start_work = false,
+  },
+  config = function(_, opts)
+    require("kaneo").setup(opts)
+  end,
 }
 ```
 
-| Setting | Descripción |
-|---------|-------------|
-| `kaneo.apiKey` | API key. Vacío → `API_KEY`, `KANEO_API_KEY` o `~/.config/kaneo/api-key` |
-| `kaneo.userId` / `kaneo.userEmail` | Para `assignee = me` en KQL |
-| `kaneo.commentBranchOnStartWork` | Comenta la rama en la tarea Kaneo |
-| `kaneo.storeBranchLink` | Vincula rama ↔ tarea en el panel Desarrollo |
+Comandos: `:KaneoBoard`, `:KaneoStartWork`, `:KaneoSelectProject`, `:KaneoRefresh`
 
-**No commitees la API key.** Mantén los IDs de workspace/proyecto en settings locales si el repo es público.
+---
 
-## Uso
-
-1. Icono **Kaneo** en la barra lateral → **Actividades**
-2. Elige proyecto (icono carpeta en la barra del panel)
-3. Secciones colapsables con KQL; filtro global y chips rápidos
-4. Clic en una tarea → detalle en el editor (estado, fechas, comentarios, Start Work)
-
-### KQL (filtro en cliente)
+## KQL (ambos clientes)
 
 | Ejemplo | Significado |
 |---------|-------------|
-| `status = to-do` | Columna To Do |
 | `assignee = me` | Asignadas a ti |
 | `assignee is empty` | Sin asignar |
-| `text ~ sprites` | Busca en título/descripción |
 | `status = in-progress AND priority = high` | Combinado |
+| `text ~ sprites` | Busca en título/descripción |
 
-### Start Work
+## CI / releases
 
-- Prefix (`feature`, `fix`, …), nombre de rama, rama base, remote
-- Push al remote (opcional; revisa el checkbox antes de confirmar)
-- Transición a In Progress y asignación opcional
+Dos pipelines independientes:
 
-### Tipos de tarea (por prefijo en el título)
+| Workflow | Trigger | Artefacto | Tag |
+|----------|---------|-----------|-----|
+| `release-cursor.yml` | cambios en `src/`, `package.json` | VSIX | `v<package.json>` |
+| `release-neovim.yml` | cambios en `neovim/` | tar.gz | `nvim-v<neovim/VERSION>` |
 
-| Prefijo | Icono |
-|---------|-------|
-| `Bug:`, `Fix:`, `Hotfix:` | Bug |
-| `PBI:`, `Story:`, `Epic:` | Story |
-| `Spike:`, `Research:` | Spike |
-| `Chore:`, `Docs:`, `Refactor:` | Chore |
+Publicar versión nueva:
 
-## Desarrollo y release
+1. **Cursor:** sube `version` en `package.json` → push `main`
+2. **Neovim:** sube `neovim/VERSION` → push `main`
 
 ```bash
-npm run package    # VSIX en dist/
-npm run install:dev  # symlink para desarrollo
+npm run package:all   # compila ambos en local
 ```
-
-### CI (GitHub Actions)
-
-El workflow [`.github/workflows/release.yml`](.github/workflows/release.yml):
-
-1. En cada push a `main`: empaqueta el **VSIX** y lo sube como artifact
-2. Crea el tag `v<version>` según `package.json` (si no existe)
-3. En push de tag `v*`: publica un **GitHub Release** con el VSIX adjunto
-
-Para publicar una nueva versión:
-
-1. Sube `version` en `package.json`
-2. Commit y push a `main`
-3. El pipeline crea el tag y el release automáticamente
-
-Tags existentes: `v0.3.0`, `v0.3.1`, `v0.4.3` (según releases).
-
-## Comandos
-
-| Comando | Acción |
-|---------|--------|
-| `Kaneo: Mostrar panel` | Enfoca el sidebar |
-| `Kaneo: Actualizar board` | Refresca tareas |
-| `Kaneo: Elegir proyecto` | Selector workspace/proyecto |
-| `Kaneo: Start Work` | Start Work desde paleta |
 
 ## Licencia
 
