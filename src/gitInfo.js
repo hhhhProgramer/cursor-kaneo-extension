@@ -228,4 +228,20 @@ async function pushBranch(folderUri, branchName, remoteName = "origin") {
   await repo.push(remoteName, branchName, true);
 }
 
-module.exports = { getGitInfo, pushBranch, findRepository, getGitApi };
+/**
+ * @param {import('vscode').Uri} folderUri
+ * @param {string} branchName
+ * @param {string} [remoteName]
+ */
+async function branchExistsOnRemote(folderUri, branchName, remoteName = "origin") {
+  const api = await getGitApi();
+  const repo = findRepository(api, folderUri);
+  const cwd = repo?.rootUri.fsPath || folderUri?.fsPath || "";
+  if (!cwd || !branchName) return false;
+  const out = await gitCli(cwd, ["ls-remote", "--heads", remoteName, `refs/heads/${branchName}`]);
+  if (out) return true;
+  const out2 = await gitCli(cwd, ["ls-remote", "--heads", remoteName, branchName]);
+  return Boolean(out2);
+}
+
+module.exports = { getGitInfo, pushBranch, branchExistsOnRemote, findRepository, getGitApi };

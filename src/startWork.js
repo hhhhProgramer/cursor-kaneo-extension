@@ -5,6 +5,8 @@ const kaneo = require("./kaneoClient");
 const { buildBranchName, createAndCheckoutBranch } = require("./branch");
 const { getGitInfo, pushBranch } = require("./gitInfo");
 const { getGitWorkspaceFolder } = require("./gitWorkspace");
+const { setBranchLink, formatBranchComment, githubBranchUrl, resolvePullRequestUrl } = require("./branchLink");
+const { branchExistsOnRemote } = require("./gitInfo");
 
 /**
  * @param {object} opts
@@ -47,10 +49,16 @@ async function executeStartWork({ task, project, git, workspaceId, context }, ms
   try {
     const baseRef = (msg.baseBranch || git?.defaultBase || "main").trim();
     const remoteName = (msg.remoteName || git?.originName || "origin").trim();
+    const g = git?.originUrl ? git : await getGitInfo(folder);
+    const remoteUrl =
+      (g.remotes || []).find((r) => r.name === remoteName)?.pushUrl ||
+      (g.remotes || []).find((r) => r.name === remoteName)?.fetchUrl ||
+      g.originUrl ||
+      "";
+
     const { created } = await createAndCheckoutBranch(folder, branchName, baseRef);
 
     if (msg.push) {
-      const g = git?.originUrl ? git : await getGitInfo(folder);
       await pushBranch(folder, branchName, remoteName || g.originName || "origin");
     }
 
@@ -65,10 +73,56 @@ async function executeStartWork({ task, project, git, workspaceId, context }, ms
       }
     }
 
+    const linkBranch = msg.linkBranch !== false;
+    const githubUrl = githubBranchUrl(remoteUrl, branchName);
+    const onOriginAfter =
+      msg.push || (await branchExistsOnRemote(folder, branchName, remoteName));
+    const pullRequestUrl = await resolvePullRequestUrl({
+      remoteUrl,
+      branchName,
+      baseRef,
+      onOrigin: onOriginAfter,
+    });
+    if (linkBranch && context) {
+      if (config.storeBranchLink) {
+        await setBranchLink(context, task.id, {
+          branchName,
+          remoteName,
+          remoteUrl,
+          baseRef,
+          repoPath: folder.fsPath,
+          githubUrl: githubUrl || undefined,
+          pullRequestUrl: pullRequestUrl || undefined,
+          onOrigin: onOriginAfter,
+        });
+      }
+      if (config.commentBranchOnStartWork) {
+        try {
+          await kaneo.createComment(
+            config,
+            task.id,
+            formatBranchComment({
+              branchName,
+              remoteName,
+              remoteUrl,
+              baseRef,
+              repoPath: folder.fsPath,
+              githubUrl: githubUrl || undefined,
+              pullRequestUrl: pullRequestUrl || undefined,
+            }),
+          );
+        } catch (e) {
+          const detail = e instanceof Error ? e.message : String(e);
+          vscode.window.showWarningMessage(`Rama creada, pero no se pudo comentar en Kaneo: ${detail}`);
+        }
+      }
+    }
+
     const parts = [];
     parts.push(created ? `Rama creada: ${branchName}` : `Checkout: ${branchName}`);
     if (baseRef) parts.push(`desde ${baseRef}`);
     if (msg.push) parts.push(`push → ${remoteName}`);
+    if (linkBranch) parts.push("vinculada en Kaneo");
     if (msg.transition) {
       parts.push(`→ ${config.inProgressStatus}`);
       if (config.assignToMeOnStartWork) parts.push("asignada a ti");

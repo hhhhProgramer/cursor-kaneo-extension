@@ -2,11 +2,21 @@
 
 const vscode = require("vscode");
 const kaneo = require("./kaneoClient");
-const { parseBoardResponse, taskKey, PRIORITY_LABELS } = require("./tasks");
+const { parseBoardResponse, taskKey, PRIORITY_LABELS, formatDateShort } = require("./tasks");
 const { compileKql, KQL_EXAMPLES } = require("./kql");
 const { getGitWorkspaceFolder } = require("./gitWorkspace");
 const { getGitInfo } = require("./gitInfo");
 const { getSharedWebviewCss, ICONS, statusDotClass } = require("./webviewTheme");
+const {
+  getSections,
+  saveSections,
+  addSection,
+  removeSection,
+  getCollapsed,
+  setCollapsed,
+  SECTION_ICON_OPTIONS,
+} = require("./savedSections");
+const { inferTaskType } = require("./taskTypeIcons");
 
 class KaneoBoardProvider {
   /**
@@ -78,6 +88,36 @@ class KaneoBoardProvider {
           await this.onOpenStartWork(msg.taskId);
         }
         break;
+      case "toggleSection": {
+        const pid = kaneo.getConfig().projectId;
+        if (!pid) break;
+        const collapsed = { ...getCollapsed(this.context, pid) };
+        collapsed[msg.sectionId] = !collapsed[msg.sectionId];
+        await setCollapsed(this.context, pid, collapsed);
+        this.renderBoard();
+        break;
+      }
+      case "addSection":
+        await this.promptAddSection();
+        break;
+      case "deleteSection": {
+        const pid = kaneo.getConfig().projectId;
+        if (!pid || !msg.sectionId) break;
+        await removeSection(this.context, pid, msg.sectionId);
+        await this.refresh();
+        break;
+      }
+      case "saveSection": {
+        const pid = kaneo.getConfig().projectId;
+        if (!pid || !msg.section) break;
+        const sections = getSections(this.context, pid);
+        const idx = sections.findIndex((s) => s.id === msg.section.id);
+        if (idx >= 0) sections[idx] = { ...sections[idx], ...msg.section };
+        else sections.push(msg.section);
+        await saveSections(this.context, pid, sections);
+        await this.refresh();
+        break;
+      }
       default:
         break;
     }
@@ -122,6 +162,19 @@ class KaneoBoardProvider {
       }
       this.workspaceId = workspaceId || null;
 
+      const { resolveCurrentUserId } = require("./userContext");
+      let userId = (config.userId || "").trim();
+      if (!userId) userId = this.context.globalState.get("kaneo.userId") || "";
+      if (!userId && workspaceId) {
+        try {
+          const resolved = await resolveCurrentUserId(this.context, workspaceId);
+          if (resolved) userId = resolved;
+        } catch {
+          /* sin usuario: assignee = me no filtra */
+        }
+      }
+      this.resolvedUserId = userId || "";
+
       const raw = await kaneo.listTasks(config, config.projectId);
       this.board = parseBoardResponse(raw);
     } catch (e) {
@@ -131,34 +184,92 @@ class KaneoBoardProvider {
     this.renderBoard();
   }
 
-  renderBoard() {
-    let tasks = this.board?.allTasks || [];
-    if (this.board?.project?.slug) {
-      const pred = compileKql(this.filterQuery, { projectSlug: this.board.project.slug });
-      tasks = tasks.filter(pred);
-    }
+  async promptAddSection() {
+    const vscode = require("vscode");
+    const pid = kaneo.getConfig().projectId;
+    if (!pid) return;
 
-    const columns = (this.board?.columns || []).map((col) => ({
-      id: col.id,
-      name: col.name,
-      tasks: tasks
-        .filter((t) => (t.status || col.id) === col.id)
-        .map((t) => ({
-          ...t,
-          key: taskKey(t, this.board?.project?.slug),
-          priorityLabel: PRIORITY_LABELS[t.priority] || t.priority || "",
-          statusName: t.statusName || col.name,
-        })),
-    }));
+    const name = await vscode.window.showInputBox({
+      title: "Kaneo: nueva carpeta",
+      prompt: "Nombre de la carpeta de consulta",
+      placeHolder: "Alta prioridad en progreso",
+    });
+    if (!name?.trim()) return;
+
+    const query = await vscode.window.showInputBox({
+      title: "Kaneo: consulta KQL",
+      prompt: "Filtro KQL para esta sección",
+      placeHolder: "status = in-progress AND priority = high",
+      value: "",
+    });
+    if (query === undefined) return;
+
+    const iconPick = await vscode.window.showQuickPick(
+      SECTION_ICON_OPTIONS.map((o) => ({ label: o.label, id: o.id })),
+      { title: "Icono de la sección", placeHolder: "Filtro" },
+    );
+
+    await addSection(this.context, pid, {
+      id: `sec-${Date.now()}`,
+      name: name.trim(),
+      query: (query || "").trim(),
+      icon: iconPick?.id || "filter",
+    });
+    await this.refresh();
+  }
+
+  renderBoard() {
+    const config = kaneo.getConfig();
+    const projectId = config.projectId || "";
+    const sections = getSections(this.context, projectId);
+    const collapsedMap = getCollapsed(this.context, projectId);
+
+    let userId = (this.resolvedUserId || "").trim();
+    if (!userId) userId = (config.userId || "").trim();
+    if (!userId) userId = this.context.globalState.get("kaneo.userId") || "";
+
+    const ctx = {
+      projectSlug: this.board?.project?.slug,
+      userId: userId || undefined,
+    };
+
+    const globalPred = compileKql(this.filterQuery, ctx);
+    const allTasks = (this.board?.allTasks || [])
+      .filter(globalPred)
+      .map((t) => ({
+        ...t,
+        key: taskKey(t, this.board?.project?.slug),
+        priorityLabel: PRIORITY_LABELS[t.priority] || t.priority || "",
+        statusName: t.statusName || t.status,
+        taskType: inferTaskType(t.title),
+        dueLabel: formatDateShort(t.dueDate),
+        startLabel: formatDateShort(t.startDate),
+        createdLabel: formatDateShort(t.createdAt),
+      }));
+
+    const sectionsPayload = sections.map((sec) => {
+      const pred = compileKql(sec.query, ctx);
+      const tasks = allTasks
+        .filter(pred)
+        .sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
+      return {
+        ...sec,
+        collapsed: !!collapsedMap[sec.id],
+        count: tasks.length,
+        tasks,
+      };
+    });
 
     this.post({
       type: "board",
       payload: {
         error: this.error,
         project: this.board?.project || null,
-        columns,
+        sections: sectionsPayload,
         filterQuery: this.filterQuery,
         kqlExamples: KQL_EXAMPLES,
+        kqlHelp:
+          "KQL: status, priority, assignee (= me), key, text ~, AND/OR. Kaneo es kanban (sin tipos Bug/PBI); los iconos se infieren del título.",
       },
     });
   }
@@ -202,76 +313,122 @@ function getSidebarHtml(webview) {
   * { box-sizing: border-box; }
   body {
     font-family: var(--vscode-font-family);
-    font-size: var(--vscode-font-size);
+    font-size: 13px;
     color: var(--vscode-foreground);
     background: var(--vscode-sideBar-background);
-    margin: 0; padding: 10px;
+    margin: 0; padding: 0;
   }
-  .toolbar { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+  .header {
+    padding: 10px 10px 8px;
+    border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border, transparent));
+  }
+  .project-row {
+    display: flex; align-items: center; gap: 7px;
+    font-weight: 600; font-size: 12px;
+    text-transform: uppercase; letter-spacing: .04em;
+    color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
+    opacity: .9; margin-bottom: 8px;
+  }
+  .filter-block { margin-bottom: 8px; }
+  .filter-label {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; opacity: .75; margin-bottom: 5px;
+  }
+  .filter-block input {
+    width: 100%; padding: 6px 10px; border-radius: 4px; font-size: 13px;
+    background: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border, transparent);
+  }
+  .chips { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 7px; }
   .chip {
     display: inline-flex; align-items: center; gap: 4px;
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
-    border: 1px solid var(--vscode-widget-border, transparent);
-    border-radius: 6px; padding: 5px 9px; cursor: pointer; font-size: 11px; font-weight: 600;
-    transition: background .15s;
+    background: transparent; color: var(--vscode-foreground);
+    border: none; border-radius: 4px; padding: 3px 8px;
+    cursor: pointer; font-size: 12px; opacity: .8;
   }
-  .chip:hover { opacity: .9; }
-  .chip.active { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
-  .kql-wrap { margin-bottom: 10px; }
-  .kql-label { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; margin-bottom: 5px; }
-  .kql-wrap input {
-    width: 100%; padding: 7px 10px; border-radius: 6px; font-size: 12px;
+  .chip:hover { background: var(--vscode-list-hoverBackground); opacity: 1; }
+  .chip.active { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); opacity: 1; }
+  .kql-hint { font-size: 11px; opacity: .55; margin-top: 5px; line-height: 1.4; padding: 0 10px; }
+  .tree-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 10px 4px; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .04em; opacity: .7;
   }
-  .kql-hint { font-size: 10px; opacity: .65; margin-top: 4px; line-height: 1.35; }
-  .project {
-    display: flex; align-items: center; gap: 6px;
-    font-weight: 700; margin-bottom: 10px; font-size: 12px;
-    padding: 8px 10px; border-radius: 8px;
-    background: var(--vscode-input-background);
-    border: 1px solid var(--vscode-widget-border, #444);
-  }
-  .col-header {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 10px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .05em; color: var(--vscode-foreground);
-    margin: 12px 0 6px; padding-bottom: 4px;
-    border-bottom: 1px solid var(--vscode-widget-border, #444);
-  }
-  .task {
-    border: none; border-radius: 6px; padding: 8px 8px 8px 10px; margin-bottom: 3px;
-    cursor: pointer; background: transparent;
-    border-left: 3px solid transparent;
-  }
-  .task:hover { background: var(--vscode-list-hoverBackground); }
-  .task:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
-  .task.border-todo { border-left-color: #6b7280; }
-  .task.border-progress { border-left-color: #3b82f6; }
-  .task.border-review { border-left-color: #8b5cf6; }
-  .task.border-done { border-left-color: #22c55e; }
-  .task-row { display: flex; gap: 8px; align-items: flex-start; }
-  .task-key {
-    flex-shrink: 0; font-weight: 700; font-size: 11px;
-    color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
-    min-width: 48px;
-  }
-  .task-body { flex: 1; min-width: 0; }
-  .task-title {
-    font-size: 12px; line-height: 1.4; color: var(--vscode-foreground);
-    overflow: hidden; text-overflow: ellipsis;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  }
-  .badges { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; align-items: center; }
-  .badge {
+  .tree-toolbar button {
     display: inline-flex; align-items: center; gap: 4px;
-    font-size: 9px; padding: 2px 6px; border-radius: 8px; font-weight: 600;
+    border: none; background: transparent; cursor: pointer;
+    color: var(--vscode-textLink-foreground); font-size: 12px; font-weight: 600; padding: 3px 6px;
+    border-radius: 4px;
+  }
+  .tree-toolbar button:hover { background: var(--vscode-list-hoverBackground); }
+  .tree { padding: 0 0 14px; user-select: none; }
+  .tree-node { margin: 0; }
+  .tree-row {
+    display: flex; align-items: center; gap: 6px;
+    min-height: 26px; padding: 1px 10px 1px 6px;
+    cursor: pointer; line-height: 26px; font-size: 14px;
+    white-space: nowrap; overflow: hidden;
+  }
+  .tree-row:hover { background: var(--vscode-list-hoverBackground); }
+  .tree-row:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+  .tree-row.folder-row { font-weight: 600; font-size: 13px; }
+  .tree-row.folder-row .tree-label { opacity: .95; }
+  .twistie {
+    width: 18px; height: 18px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    opacity: .75;
+  }
+  .twistie.spacer { visibility: hidden; }
+  .tree-icon {
+    width: 18px; height: 18px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tree-icon .ico { width: 17px; height: 17px; opacity: 1; }
+  .tree-icon.type-bug { color: #f87171; }
+  .tree-icon.type-story { color: #60a5fa; }
+  .tree-icon.type-spike { color: #c084fc; }
+  .tree-icon.type-chore { color: #94a3b8; }
+  .tree-icon.type-task { color: #d4a72c; }
+  .tree-icon.folder-icon { color: var(--vscode-symbolIcon-folderForeground, #c5a332); }
+  .tree-key {
+    flex-shrink: 0; font-size: 12px; font-weight: 600;
+    color: var(--vscode-descriptionForeground); min-width: 0;
+  }
+  .tree-label {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    font-size: 14px;
+  }
+  .tree-meta {
+    flex-shrink: 0; font-size: 11px; opacity: .6;
+    display: inline-flex; align-items: center; gap: 6px; margin-left: 6px;
+  }
+  .tree-meta .count {
+    font-variant-numeric: tabular-nums;
     background: var(--vscode-badge-background);
     color: var(--vscode-badge-foreground);
+    padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 700; line-height: 16px;
   }
-  .badge.p-high, .badge.p-urgent { background: rgba(220,38,38,.25); color: #fca5a5; }
-  .badge.p-medium { background: rgba(245,158,11,.2); color: #fcd34d; }
-  .badge.p-low { background: rgba(59,130,246,.2); color: #93c5fd; }
-  .empty, .error { padding: 14px 8px; opacity: .85; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .tree-children { padding-left: 0; }
+  .tree-children .tree-row { padding-left: 24px; min-height: 28px; line-height: 28px; }
+  .tree-children .tree-row .tree-label { font-weight: 400; font-size: 13px; }
+  .tree-empty {
+    padding: 4px 10px 4px 40px; font-size: 12px; opacity: .55; font-style: italic; line-height: 26px;
+  }
+  .tree-kql {
+    padding: 2px 10px 6px 40px; font-size: 10px; opacity: .5; line-height: 1.35;
+  }
+  .tree-kql code { font-family: var(--vscode-editor-font-family); }
+  .folder-actions { margin-left: 6px; opacity: 0; }
+  .tree-row.folder-row:hover .folder-actions { opacity: .75; }
+  .folder-actions button {
+    border: none; background: transparent; cursor: pointer; padding: 2px 4px;
+    color: var(--vscode-descriptionForeground); display: flex; align-items: center;
+  }
+  .folder-actions button:hover { color: var(--vscode-errorForeground); }
+  .empty, .error {
+    padding: 14px 10px; opacity: .85; font-size: 13px;
+    display: flex; align-items: center; gap: 6px;
+  }
   .error { color: var(--vscode-errorForeground); }
 </style>
 </head>
@@ -288,13 +445,61 @@ function getSidebarHtml(webview) {
     if (status === 'done') return 'dot-done';
     return 'dot-todo';
   }
-  function taskBorderClass(status) {
-    if (status === 'in-progress') return 'border-progress';
-    if (status === 'in-review') return 'border-review';
-    if (status === 'done') return 'border-done';
-    return 'border-todo';
+  function twistie(open) {
+    const chev = ico('chevron').replace('ico-chevron', 'ico ico-chevron' + (open ? ' open' : ''));
+    return '<span class="twistie">' + chev + '</span>';
   }
-  let state = { columns: [], kqlExamples: [] };
+
+  function renderTreeItem(t) {
+    const type = t.taskType || 'task';
+    const typeIcon = type === 'story' ? 'story' : type;
+    const title = String(t.title || '').trim();
+    let meta = '';
+    if (t.dueLabel) meta += '<span title="Vence">' + esc(t.dueLabel) + '</span>';
+    if (t.priority === 'high' || t.priority === 'urgent') {
+      meta += '<span class="prio-dot prio-' + escAttr(t.priority) + '" title="' + esc(t.priorityLabel || '') + '"></span>';
+    } else if (t.status) {
+      meta += '<span class="status-dot ' + statusDotClass(t.status) + '" title="' + esc(t.statusName || t.status) + '"></span>';
+    }
+    return '<div class="tree-row task" tabindex="0" role="treeitem" data-id="' + escAttr(t.id) + '">' +
+      '<span class="twistie spacer"></span>' +
+      '<span class="tree-icon type-' + escAttr(type) + '">' + ico(typeIcon) + '</span>' +
+      '<span class="tree-key">' + esc(t.key || '') + '</span>' +
+      '<span class="tree-label" title="' + escAttr(title) + '">' + esc(title) + '</span>' +
+      (meta ? '<span class="tree-meta">' + meta + '</span>' : '') +
+      '</div>';
+  }
+
+  function renderFolder(sec) {
+    const open = !sec.collapsed;
+    const folderIco = open ? 'folderOpen' : 'folder';
+    let html = '<div class="tree-node" role="treeitem" aria-expanded="' + (open ? 'true' : 'false') + '" data-section="' + escAttr(sec.id) + '">';
+    html += '<div class="tree-row folder-row" data-toggle="' + escAttr(sec.id) + '">';
+    html += twistie(open);
+    html += '<span class="tree-icon folder-icon">' + ico(folderIco) + '</span>';
+    html += '<span class="tree-label">' + esc(sec.name) + '</span>';
+    html += '<span class="tree-meta"><span class="count">' + (sec.count || 0) + '</span></span>';
+    if (!sec.builtin) {
+      html += '<span class="folder-actions"><button type="button" data-del="' + escAttr(sec.id) + '" title="Eliminar sección">' + ico('trash') + '</button></span>';
+    }
+    html += '</div>';
+    if (open) {
+      html += '<div class="tree-children" role="group">';
+      if (!sec.tasks || !sec.tasks.length) {
+        html += '<div class="tree-empty">Sin tareas</div>';
+      } else {
+        for (const t of sec.tasks) html += renderTreeItem(t);
+      }
+      if (sec.query) {
+        html += '<div class="tree-kql">KQL: <code>' + esc(sec.query) + '</code></div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  let state = { sections: [], kqlExamples: [] };
 
   function render() {
     const app = document.getElementById('app');
@@ -312,39 +517,31 @@ function getSidebarHtml(webview) {
       return '<button class="chip' + active + '" data-q="' + escAttr(ex.query || '') + '">' + ico('search') + ' ' + esc(ex.label) + '</button>';
     }).join('');
 
-    let body = '';
-    const cols = state.columns || [];
-    const total = cols.reduce((n, c) => n + (c.tasks ? c.tasks.length : 0), 0);
-    if (!total) {
-      body = '<div class="empty">' + ico('task') + ' Sin tareas para este filtro.</div>';
+    let treeHtml = '';
+    const sections = state.sections || [];
+    if (!sections.length) {
+      treeHtml = '<div class="empty">' + ico('filter') + ' Sin secciones configuradas.</div>';
     } else {
-      for (const col of cols) {
-        if (!col.tasks || !col.tasks.length) continue;
-        const dot = '<span class="status-dot ' + statusDotClass(col.id) + '"></span>';
-        body += '<div class="col-header">' + dot + esc(col.name) + ' · ' + col.tasks.length + '</div>';
-        for (const t of col.tasks) {
-          const border = taskBorderClass(t.status || col.id);
-          body += '<div class="task ' + border + '" tabindex="0" role="button" data-id="' + escAttr(t.id) + '" title="Abrir tarea">';
-          body += '<div class="task-row">';
-          body += '<span class="task-key">' + esc(t.key || '') + '</span>';
-          body += '<div class="task-body">';
-          body += '<div class="task-title">' + esc(t.title || '') + '</div>';
-          body += '<div class="badges">';
-          if (t.priorityLabel) {
-            const prioCls = 'prio-' + (t.priority || 'no-priority');
-            body += '<span class="badge p-' + escAttr(t.priority || '') + '"><span class="prio-dot ' + prioCls + '"></span>' + esc(t.priorityLabel) + '</span>';
-          }
-          if (t.assigneeName) body += '<span class="badge">' + ico('person') + ' ' + esc(t.assigneeName) + '</span>';
-          body += '</div></div></div></div>';
-        }
-      }
+      treeHtml = '<div class="tree" role="tree">';
+      for (const sec of sections) treeHtml += renderFolder(sec);
+      treeHtml += '</div>';
     }
 
     app.innerHTML =
-      '<div class="project">' + ico('project') + ' ' + esc(state.project.name || '') + '</div>' +
-      '<div class="kql-wrap"><div class="kql-label">' + ico('search') + ' KQL</div>' +
-      '<input id="kql" type="text" placeholder="status = to-do" value="' + escAttr(state.filterQuery || '') + '" /></div>' +
-      '<div class="toolbar">' + chips + '</div>' + body;
+      '<div class="header">' +
+        '<div class="project-row">' + ico('project') + ' ' + esc(state.project.name || '') + '</div>' +
+        '<div class="filter-block">' +
+          '<div class="filter-label">' + ico('search') + ' Filtro global</div>' +
+          '<input id="kql" type="text" placeholder="text ~ sprites" value="' + escAttr(state.filterQuery || '') + '" />' +
+          '<div class="chips">' + chips + '</div>' +
+        '</div>' +
+        (state.kqlHelp ? '<div class="kql-hint">' + esc(state.kqlHelp) + '</div>' : '') +
+      '</div>' +
+      '<div class="tree-toolbar">' +
+        '<span>Consultas</span>' +
+        '<button type="button" id="btn-add-section">' + ico('plus') + ' Nueva carpeta</button>' +
+      '</div>' +
+      treeHtml;
   }
 
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -355,6 +552,25 @@ function getSidebarHtml(webview) {
   }
 
   document.addEventListener('click', (e) => {
+    const del = e.target.closest('[data-del]');
+    if (del) {
+      e.stopPropagation();
+      const id = del.getAttribute('data-del');
+      if (id && confirm('¿Eliminar esta sección?')) {
+        vscode.postMessage({ type: 'deleteSection', sectionId: id });
+      }
+      return;
+    }
+    const toggle = e.target.closest('[data-toggle]');
+    if (toggle) {
+      const id = toggle.getAttribute('data-toggle');
+      if (id) vscode.postMessage({ type: 'toggleSection', sectionId: id });
+      return;
+    }
+    if (e.target.id === 'btn-add-section' || e.target.closest('#btn-add-section')) {
+      vscode.postMessage({ type: 'addSection' });
+      return;
+    }
     const task = e.target.closest('.task');
     if (task) {
       openTask(task.getAttribute('data-id'));

@@ -1,6 +1,6 @@
 "use strict";
 
-const { getSharedWebviewCss, ICONS } = require("./webviewTheme");
+const { getSharedWebviewCss, ICONS, icon } = require("./webviewTheme");
 
 /**
  * @param {vscode.Webview} webview
@@ -76,19 +76,107 @@ function getTaskDetailHtml(webview) {
   .field select, .field input, .field textarea, .modal select, .modal input {
     width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 13px;
   }
+  .dev-block {
+    margin-bottom: 16px; padding: 10px 12px; border-radius: 8px;
+    background: var(--vscode-input-background);
+    border: 1px solid var(--vscode-widget-border, #444);
+    font-size: 12px;
+  }
+  .dev-branch {
+    font-family: var(--vscode-editor-font-family);
+    font-size: 12px; word-break: break-all; margin-top: 4px;
+    color: var(--vscode-textLink-foreground);
+  }
+  .dev-branch-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--vscode-editor-font-family);
+    font-size: 12px; word-break: break-all; margin-top: 4px;
+    color: var(--vscode-textLink-foreground);
+    text-decoration: none; cursor: pointer;
+  }
+  .dev-branch-link:hover { text-decoration: underline; }
+  .dev-github {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 8px; font-size: 12px; font-weight: 600;
+    color: var(--vscode-textLink-foreground);
+    text-decoration: none; cursor: pointer;
+  }
+  .dev-github:hover { text-decoration: underline; }
+  .dev-status {
+    display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; padding: 2px 7px; border-radius: 999px; margin-top: 6px;
+  }
+  .dev-status-remote { background: rgba(34,197,94,.2); color: #86efac; }
+  .dev-status-local { background: rgba(245,158,11,.2); color: #fcd34d; }
+  .dev-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .btn-sm { padding: 5px 10px; font-size: 11px; border-radius: 5px; }
+  .dev-hint { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 8px; line-height: 1.45; }
   .meta-line { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 10px; }
   .desc-block { margin-bottom: 22px; }
   .desc-title { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; }
   .desc {
-    font-size: 13px; line-height: 1.65; padding: 14px 16px;
+    font-size: 13px; line-height: 1.6; padding: 16px 18px;
     background: var(--vscode-input-background);
     border: 1px solid var(--vscode-input-border, #555);
-    border-radius: 8px; max-height: 50vh; overflow-y: auto;
+    border-radius: 8px; max-height: 55vh; overflow-y: auto;
     box-shadow: inset 0 1px 2px rgba(0,0,0,.12);
   }
-  .desc h3 { font-size: 14px; margin: 14px 0 6px; text-transform: none; font-weight: 700; }
-  .desc ul { margin: 6px 0 6px 18px; }
-  .desc code { background: var(--vscode-textCodeBlock-background); padding: 2px 5px; border-radius: 4px; font-size: 12px; }
+  .markdown-body { color: var(--vscode-foreground); }
+  .markdown-body > *:first-child { margin-top: 0; }
+  .markdown-body > *:last-child { margin-bottom: 0; }
+  .markdown-body h2.md-h1,
+  .markdown-body h3.md-h2 {
+    font-size: 14px; font-weight: 700; margin: 20px 0 8px;
+    padding-bottom: 6px; text-transform: none; letter-spacing: 0;
+    border-bottom: 1px solid var(--vscode-widget-border, #444);
+    color: var(--vscode-foreground);
+  }
+  .markdown-body h2.md-h1:first-child,
+  .markdown-body h3.md-h2:first-child { margin-top: 0; }
+  .markdown-body h4.md-h3, .markdown-body h5.md-h4 {
+    font-size: 13px; font-weight: 700; margin: 14px 0 6px;
+    text-transform: none; color: var(--vscode-foreground);
+  }
+  .markdown-body p { margin: 0 0 10px; }
+  .markdown-body ul, .markdown-body ol {
+    margin: 4px 0 12px; padding-left: 1.35em;
+  }
+  .markdown-body li { margin: 5px 0; padding-left: 2px; }
+  .markdown-body li::marker { color: var(--vscode-textLink-foreground); font-weight: 600; }
+  .markdown-body code {
+    background: var(--vscode-textCodeBlock-background);
+    padding: 2px 6px; border-radius: 4px; font-size: 12px;
+    font-family: var(--vscode-editor-font-family);
+  }
+  .markdown-body a.md-link {
+    color: var(--vscode-textLink-foreground);
+    text-decoration: none; word-break: break-all;
+  }
+  .markdown-body a.md-link:hover { text-decoration: underline; }
+  .markdown-body blockquote {
+    margin: 10px 0; padding: 8px 12px;
+    border-left: 3px solid var(--vscode-focusBorder, #0078d4);
+    background: var(--vscode-textBlockQuote-background, rgba(127,127,127,.1));
+    border-radius: 0 6px 6px 0;
+  }
+  .markdown-body blockquote p { margin: 0 0 6px; }
+  .markdown-body blockquote p:last-child { margin-bottom: 0; }
+  .markdown-body hr {
+    border: none; border-top: 1px solid var(--vscode-widget-border, #444);
+    margin: 16px 0;
+  }
+  .markdown-body .md-empty { color: var(--vscode-descriptionForeground); margin: 0; }
+  .label-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .label-chip {
+    font-size: 10px; padding: 2px 7px; border-radius: 999px; font-weight: 600;
+    background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .type-badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+    border-radius: 6px; font-size: 12px; font-weight: 600;
+    background: var(--vscode-input-background); border: 1px solid var(--vscode-widget-border, #444);
+  }
   .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--vscode-widget-border, #444); margin-bottom: 14px; }
   .tab {
     display: inline-flex; align-items: center; gap: 6px;
@@ -167,6 +255,7 @@ function getTaskDetailHtml(webview) {
     <div class="field"><div class="label-row">${icon("external")}<span>Remote</span></div><select id="sw-remote"></select></div>
     <label class="check"><input type="checkbox" id="sw-push" /> Push al remote</label>
     <label class="check"><input type="checkbox" id="sw-transition" /> → In Progress + asignarme</label>
+    <label class="check"><input type="checkbox" id="sw-link" checked /> Vincular rama en Kaneo (comentario + panel)</label>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn btn-primary" id="sw-go">${icon("branch")} Start Work</button>
       <button class="btn btn-secondary" id="sw-cancel">Cancelar</button>
@@ -200,17 +289,8 @@ function getTaskDetailHtml(webview) {
   }
 
   function renderMarkdown(md) {
-    if (!md) return '<span class="empty">Sin descripción</span>';
-    let html = esc(md);
-    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-    html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
-    html = html.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
-    html = html.replace(/\\x60([^\\x60]+)\\x60/g, '<code>$1</code>');
-    html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>[\\s\\S]*?<\\/li>\\n?)+/g, (m) => '<ul>' + m + '</ul>');
-    html = html.replace(/\\n\\n/g, '<br><br>');
-    html = html.replace(/\\n/g, '<br>');
-    return html;
+    if (!md) return '<p class="md-empty">Sin descripción</p>';
+    return String(md);
   }
 
   function activityText(a) {
@@ -266,6 +346,8 @@ function getTaskDetailHtml(webview) {
     document.getElementById('sw-push').checked = !!canPush;
     document.getElementById('sw-push').disabled = !canPush;
     document.getElementById('sw-transition').checked = state.config.moveToInProgress !== false;
+    const linkEl = document.getElementById('sw-link');
+    if (linkEl) linkEl.checked = state.config.commentBranchOnStartWork !== false;
     document.getElementById('sw-result').textContent = '';
     updateSwFull();
     document.getElementById('sw-modal').classList.add('open');
@@ -299,6 +381,84 @@ function getTaskDetailHtml(webview) {
       '<div class="history-date">' + esc(fmtDate(a.createdAt)) + '</div></div></div>').join('') : '<div class="empty">' + ico('history') + ' Sin historial</div>';
 
     const statusDot = '<span class="status-dot ' + statusDotClass(t.status) + '"></span>';
+    const taskType = t.taskType || 'task';
+    const typeIcon = taskType === 'story' ? 'story' : taskType;
+
+    let labelsHtml = '';
+    const labels = t.labels || [];
+    if (labels.length) {
+      labelsHtml = '<div class="field"><div class="label-row">' + ico('label') + '<span>Etiquetas</span></div><div class="label-chips">' +
+        labels.map(l => {
+          const name = esc((l && l.name) || l || '');
+          const color = (l && l.color) ? ' style="border:1px solid ' + escAttr(l.color) + '"' : '';
+          return '<span class="label-chip"' + color + '>' + name + '</span>';
+        }).join('') + '</div></div>';
+    }
+
+    let linksHtml = '';
+    const links = t.externalLinks || [];
+    if (links.length) {
+      linksHtml = '<div class="field"><div class="label-row">' + ico('external') + '<span>Enlaces</span></div>';
+      for (const link of links) {
+        const url = (link && link.url) || link;
+        const title = (link && link.title) || url;
+        if (url) linksHtml += '<div class="meta-line"><a href="' + escAttr(url) + '" class="md-link" data-external>' + esc(title) + '</a></div>';
+      }
+      linksHtml += '</div>';
+    }
+
+    let devHtml = '';
+    const bl = state.branchLink;
+    if (bl && bl.branchName) {
+      const tag = bl.detected ? ' (rama actual)' : (bl.fromComment ? ' (Kaneo)' : '');
+      const ghUrl = bl.githubUrl || '';
+      const branchLine =
+        ghUrl
+          ? '<a href="' + escAttr(ghUrl) + '" class="dev-branch-link" data-external title="Abrir rama en GitHub">' +
+            esc(bl.branchName) + esc(tag) + ' ' + ico('external') + '</a>'
+          : '<div class="dev-branch">' + esc(bl.branchName) + esc(tag) + '</div>';
+      const statusCls = bl.onOrigin ? 'dev-status-remote' : 'dev-status-local';
+      const statusTxt = bl.onOrigin
+        ? 'En ' + esc(bl.remoteName || 'origin')
+        : (bl.fromComment ? 'Remota (sin checkout local)' : 'Solo local');
+      let statusHint = '';
+      if (bl.fromComment && !bl.detected) {
+        statusHint = '<div class="dev-hint">Rama inferida del comentario de Start Work en Kaneo.</div>';
+      } else if (!bl.onOrigin) {
+        statusHint = '<div class="dev-hint">Haz push para abrir rama y PR en GitHub.</div>';
+      }
+      let actions = '';
+      if (bl.hasGithub) {
+        actions = '<div class="dev-actions">';
+        if (bl.onOrigin) {
+          if (ghUrl) {
+            actions += '<button type="button" class="btn btn-secondary btn-sm" id="btn-dev-github">' + ico('external') + ' Rama</button>';
+          }
+          actions += '<button type="button" class="btn btn-secondary btn-sm" id="btn-dev-pr">' + ico('pullRequest') + ' Pull Request</button>';
+        } else if (bl.fromComment && ghUrl) {
+          actions += '<button type="button" class="btn btn-secondary btn-sm" id="btn-dev-github">' + ico('external') + ' Rama en GitHub</button>';
+        } else {
+          actions += '<button type="button" class="btn btn-primary btn-sm" id="btn-dev-push">' + ico('branch') + ' Push</button>';
+        }
+        actions += '</div>';
+      } else if (ghUrl) {
+        actions = '<div class="dev-actions"><a href="' + escAttr(ghUrl) + '" class="dev-github" data-external>' + ico('external') + ' Abrir en GitHub</a></div>';
+      }
+      devHtml =
+        '<div class="dev-block">' +
+        '<div class="label-row">' + ico('branch') + '<span>Desarrollo</span></div>' +
+        branchLine +
+        '<span class="dev-status ' + statusCls + '">' + statusTxt + '</span>' +
+        statusHint +
+        actions +
+        '</div>';
+    } else if (!state.githubIntegration) {
+      devHtml =
+        '<div class="dev-block">' +
+        '<div class="label-row">' + ico('branch') + '<span>Desarrollo</span></div>' +
+        '<div class="dev-hint">Sin rama vinculada. Usa Start Work o configura la integración GitHub en Kaneo para enlazar pushes/PRs automáticamente.</div>' +
+        '</div>';
+    }
 
     document.getElementById('app').innerHTML =
       '<div class="header">' +
@@ -317,7 +477,7 @@ function getTaskDetailHtml(webview) {
       '</div>' +
       '<div class="layout">' +
         '<div class="main">' +
-          '<div class="desc-block"><div class="desc-title">' + ico('desc') + ' Descripción</div><div class="desc">' + renderMarkdown(t.description) + '</div></div>' +
+          '<div class="desc-block"><div class="desc-title">' + ico('desc') + ' Descripción</div><div class="desc markdown-body">' + (t.descriptionHtml || renderMarkdown(t.description)) + '</div></div>' +
           '<div class="tabs">' +
             '<button class="tab' + (activeTab === 'comments' ? ' active' : '') + '" data-tab="comments">' + ico('comment') + ' COMENTARIOS</button>' +
             '<button class="tab' + (activeTab === 'history' ? ' active' : '') + '" data-tab="history">' + ico('history') + ' HISTORIAL</button>' +
@@ -332,11 +492,18 @@ function getTaskDetailHtml(webview) {
         '</div>' +
         '<div class="sidebar">' +
           '<div class="section-label">' + ico('task') + ' Detalles</div>' +
+          '<div class="field"><div class="label-row">' + ico(taskType) + '<span>Tipo</span></div>' +
+            '<div class="type-badge">' + ico(typeIcon) + ' ' + esc(t.taskTypeLabel || 'Tarea') + '</div></div>' +
+          '<div class="field"><div class="label-row">' + ico('task') + '<span>Clave</span></div><input type="text" readonly value="' + escAttr(t.key || '') + '" /></div>' +
           '<div class="field"><div class="label-row">' + ico('status') + '<span>Estado</span></div><select id="f-status">' + statusOpts + '</select></div>' +
           '<div class="field"><div class="label-row">' + ico('person') + '<span>Asignado</span></div><select id="f-assignee">' + assigneeOpts + '</select></div>' +
           '<div class="field"><div class="label-row">' + ico('priority') + '<span>Prioridad</span></div><select id="f-priority">' + prioOpts + '</select></div>' +
+          '<div class="field"><div class="label-row">' + ico('calendar') + '<span>Inicio</span></div><input id="f-start" type="date" value="' + escAttr(t.startDateValue || '') + '" /></div>' +
+          '<div class="field"><div class="label-row">' + ico('calendar') + '<span>Vencimiento</span></div><input id="f-due" type="date" value="' + escAttr(t.dueDateValue || '') + '" /></div>' +
           '<div class="field"><div class="label-row">' + ico('project') + '<span>Proyecto</span></div><input type="text" readonly value="' + escAttr((state.project && state.project.name) || '') + '" /></div>' +
-          '<div class="meta-line">' + ico('history') + ' Creada: ' + esc(fmtDate(t.createdAt)) + '</div>' +
+          labelsHtml + linksHtml + devHtml +
+          '<div class="meta-line">' + ico('history') + ' Creada: ' + esc(t.createdLabel || fmtDate(t.createdAt)) + '</div>' +
+          (t.number != null ? '<div class="meta-line">' + ico('task') + ' Número: ' + esc(String(t.number)) + '</div>' : '') +
           (state.git && state.git.repoPath ? '<div class="meta-line">' + ico('branch') + ' Repo: ' + esc(state.git.repoPath) + '</div>' : '') +
         '</div>' +
       '</div>';
@@ -347,6 +514,10 @@ function getTaskDetailHtml(webview) {
     document.getElementById('f-status').onchange = (e) => vscode.postMessage({ type: 'updateField', field: 'status', value: e.target.value });
     document.getElementById('f-priority').onchange = (e) => vscode.postMessage({ type: 'updateField', field: 'priority', value: e.target.value });
     document.getElementById('f-assignee').onchange = (e) => vscode.postMessage({ type: 'updateField', field: 'assignee', value: e.target.value });
+    const fStart = document.getElementById('f-start');
+    if (fStart) fStart.onchange = (e) => vscode.postMessage({ type: 'updateField', field: 'startDate', value: e.target.value });
+    const fDue = document.getElementById('f-due');
+    if (fDue) fDue.onchange = (e) => vscode.postMessage({ type: 'updateField', field: 'dueDate', value: e.target.value });
     document.getElementById('btn-comment').onclick = () => {
       const content = (document.getElementById('new-comment') || {}).value || '';
       if (!content.trim()) return;
@@ -355,6 +526,14 @@ function getTaskDetailHtml(webview) {
     document.querySelectorAll('.tab').forEach(tab => {
       tab.onclick = () => { activeTab = tab.getAttribute('data-tab'); render(); };
     });
+    const prBtn = document.getElementById('btn-dev-pr');
+    if (prBtn) prBtn.onclick = () => vscode.postMessage({ type: 'openPullRequest' });
+    const pushBtn = document.getElementById('btn-dev-push');
+    if (pushBtn) pushBtn.onclick = () => vscode.postMessage({ type: 'pushBranch' });
+    const ghBtn = document.getElementById('btn-dev-github');
+    if (ghBtn && state.branchLink && state.branchLink.githubUrl) {
+      ghBtn.onclick = () => vscode.postMessage({ type: 'openExternal', url: state.branchLink.githubUrl });
+    }
   }
 
   document.getElementById('sw-prefix').addEventListener('change', updateSwFull);
@@ -370,6 +549,7 @@ function getTaskDetailHtml(webview) {
       remoteName: document.getElementById('sw-remote').value,
       push: document.getElementById('sw-push').checked,
       transition: document.getElementById('sw-transition').checked,
+      linkBranch: document.getElementById('sw-link') ? document.getElementById('sw-link').checked : true,
     });
   };
 
@@ -392,6 +572,14 @@ function getTaskDetailHtml(webview) {
   });
 
   vscode.postMessage({ type: 'ready' });
+
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-external]');
+    if (!a) return;
+    e.preventDefault();
+    const url = a.getAttribute('href');
+    if (url) vscode.postMessage({ type: 'openExternal', url });
+  });
 })();
 </script>
 </body>

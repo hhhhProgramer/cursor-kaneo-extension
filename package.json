@@ -2,7 +2,7 @@
   "name": "kaneo-branches",
   "displayName": "Kaneo — Start Work",
   "description": "Panel Kaneo estilo Jira/Atlassian: tareas por columna, KQL, Start Work con prefix, origin y push.",
-  "version": "0.3.1",
+  "version": "0.4.3",
   "publisher": "hhhh",
   "license": "MIT",
   "engines": {
@@ -112,6 +112,16 @@
           "type": "boolean",
           "default": true,
           "description": "Asignarte la tarea al moverla a In Progress con Start Work."
+        },
+        "kaneo.commentBranchOnStartWork": {
+          "type": "boolean",
+          "default": true,
+          "description": "Al crear rama, publicar comentario en la tarea con el nombre de rama (vínculo visible en Kaneo)."
+        },
+        "kaneo.storeBranchLink": {
+          "type": "boolean",
+          "default": true,
+          "description": "Guardar localmente qué rama pertenece a cada tarea (panel Desarrollo en Cursor)."
         },
         "kaneo.userId": {
           "type": "string",

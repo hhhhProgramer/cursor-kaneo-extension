@@ -13,7 +13,7 @@ const { taskKey } = require("./tasks");
  *   assignee is empty
  *
  * @param {string} query
- * @param {{ projectSlug?: string }} [ctx]
+ * @param {{ projectSlug?: string, userId?: string }} [ctx]
  * @returns {(task: object) => boolean}
  */
 function compileKql(query, ctx = {}) {
@@ -94,6 +94,11 @@ function compileClause(clause, ctx) {
     const op = cmp[2];
     const expected = stripQuotes(cmp[3]).toLowerCase();
     return (task) => {
+      if (field === "assignee" && expected === "me" && ctx.userId) {
+        const uid = String(ctx.userId);
+        const actual = task.userId || task.assigneeId || "";
+        return op === "=" ? String(actual) === uid : String(actual) !== uid;
+      }
       const actual = String(getField(task, field, ctx)).toLowerCase();
       return op === "=" ? actual === expected : actual !== expected;
     };
@@ -120,7 +125,16 @@ function getField(task, field, ctx) {
     case "key":
       return taskKey(task, ctx.projectSlug);
     case "assignee":
-      return task.assigneeName || task.userId || "";
+      return task.assigneeName || task.userId || task.assigneeId || "";
+    case "duedate":
+    case "due":
+      return task.dueDate || "";
+    case "startdate":
+    case "start":
+      return task.startDate || "";
+    case "created":
+    case "createdat":
+      return task.createdAt || "";
     case "title":
       return task.title;
     default:
@@ -137,10 +151,11 @@ function stripQuotes(s) {
 
 const KQL_EXAMPLES = [
   { label: "Todas", query: "" },
+  { label: "Asignadas a mí", query: "assignee = me" },
+  { label: "Sin asignar", query: "assignee is empty" },
   { label: "To Do", query: "status = to-do" },
   { label: "In Progress", query: "status = in-progress" },
   { label: "Alta prioridad", query: "priority = high" },
-  { label: "Sin asignar", query: "assignee is empty" },
 ];
 
 module.exports = { compileKql, KQL_EXAMPLES };

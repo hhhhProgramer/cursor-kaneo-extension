@@ -32,6 +32,8 @@ function getConfig() {
     titleSlugMaxLength: cfg.get("titleSlugMaxLength") || 40,
     moveToInProgress: cfg.get("moveToInProgressOnStartWork") !== false,
     assignToMeOnStartWork: cfg.get("assignToMeOnStartWork") !== false,
+    commentBranchOnStartWork: cfg.get("commentBranchOnStartWork") !== false,
+    storeBranchLink: cfg.get("storeBranchLink") !== false,
     inProgressStatus: cfg.get("inProgressStatus") || "in-progress",
     userId: (cfg.get("userId") || "").trim(),
     userEmail: (cfg.get("userEmail") || "").trim(),
@@ -190,6 +192,111 @@ async function listActivities(config, taskId) {
   });
 }
 
+const PRIORITIES = ["no-priority", "low", "medium", "high", "urgent"];
+
+/**
+ * @param {object} existing
+ * @param {object} patch
+ */
+function buildFullTaskUpdateBody(existing, patch) {
+  const positionRaw = patch.position ?? existing.position;
+  const position =
+    typeof positionRaw === "number"
+      ? positionRaw
+      : typeof positionRaw === "string"
+        ? Number(positionRaw)
+        : Number.NaN;
+  if (!Number.isFinite(position)) {
+    throw new Error("Falta position numérica en la tarea.");
+  }
+  const title = patch.title ?? existing.title;
+  if (!title) throw new Error("Falta título.");
+  const description =
+    patch.description !== undefined
+      ? patch.description === null
+        ? ""
+        : String(patch.description)
+      : existing.description == null
+        ? ""
+        : String(existing.description);
+  const status = patch.status ?? existing.status;
+  if (!status) throw new Error("Falta estado.");
+  const priorityRaw = patch.priority ?? existing.priority;
+  if (!priorityRaw || !PRIORITIES.includes(priorityRaw)) {
+    throw new Error("Prioridad inválida.");
+  }
+  const projectId = patch.projectId ?? existing.projectId;
+  if (!projectId) throw new Error("Falta projectId.");
+  const userId =
+    patch.userId !== undefined
+      ? patch.userId === null
+        ? ""
+        : patch.userId
+      : existing.userId;
+
+  /** @type {Record<string, unknown>} */
+  const body = {
+    title,
+    description,
+    status,
+    priority: priorityRaw,
+    projectId,
+    position,
+  };
+
+  const startDate = patch.startDate !== undefined ? patch.startDate : existing.startDate;
+  const dueDate = patch.dueDate !== undefined ? patch.dueDate : existing.dueDate;
+  if (startDate !== undefined && startDate !== null && startDate !== "") {
+    body.startDate = startDate;
+  }
+  if (dueDate !== undefined && dueDate !== null && dueDate !== "") {
+    body.dueDate = dueDate;
+  }
+  if (userId !== undefined) body.userId = userId || "";
+  return body;
+}
+
+/**
+ * @param {object} config
+ * @param {string} taskId
+ * @param {object} patch
+ */
+async function updateTask(config, taskId, patch) {
+  assertConfigured(config);
+  const existing = await getTask(config, taskId);
+  const body = buildFullTaskUpdateBody(existing, patch);
+  return apiJson(config.baseUrl, config.apiKey, `/api/task/${encodeURIComponent(taskId)}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+async function listWorkspaceLabels(config, workspaceId) {
+  assertConfigured(config);
+  return apiJson(
+    config.baseUrl,
+    config.apiKey,
+    `/api/label/workspace/${encodeURIComponent(workspaceId)}`,
+    { method: "GET" },
+  );
+}
+
+async function getGithubIntegration(config, projectId) {
+  assertConfigured(config);
+  const id = projectId || config.projectId;
+  if (!id) return null;
+  try {
+    return await apiJson(
+      config.baseUrl,
+      config.apiKey,
+      `/api/github-integration/project/${encodeURIComponent(id)}`,
+      { method: "GET" },
+    );
+  } catch {
+    return null;
+  }
+}
+
 function taskBoardUrl(config, workspaceId, projectId) {
   const path = config.dashboardPath
     .replace("{workspaceId}", workspaceId)
@@ -211,5 +318,8 @@ module.exports = {
   listComments,
   createComment,
   listActivities,
+  updateTask,
+  listWorkspaceLabels,
+  getGithubIntegration,
   taskBoardUrl,
 };

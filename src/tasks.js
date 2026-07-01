@@ -66,9 +66,48 @@ const STATUS_COLORS = {
   planned: "#d97706",
 };
 
+/**
+ * @param {string|null|undefined} iso
+ */
+function formatDateShort(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return String(iso).slice(0, 10);
+  }
+}
+
+/**
+ * @param {string|null|undefined} iso
+ */
+function toDateInputValue(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toISOString().slice(0, 10);
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * @param {string} dateStr YYYY-MM-DD
+ */
+function dateInputToIso(dateStr) {
+  if (!dateStr) return null;
+  return `${dateStr}T12:00:00.000Z`;
+}
+
 module.exports = {
   parseBoardResponse,
   taskKey,
   PRIORITY_LABELS,
   STATUS_COLORS,
+  formatDateShort,
+  toDateInputValue,
+  dateInputToIso,
 };
