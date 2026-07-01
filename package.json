@@ -5,6 +5,15 @@
   "version": "0.4.3",
   "publisher": "hhhh",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hhhhProgramer/cursor-kaneo-extension.git"
+  },
+  "scripts": {
+    "package": "bash scripts/package.sh",
+    "install:vsix": "bash scripts/install-vsix.sh",
+    "install:dev": "bash install.sh"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },

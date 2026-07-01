@@ -3,7 +3,7 @@ set -euo pipefail
 EXT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PUBLISHER="hhhh"
 NAME="kaneo-branches"
-VERSION="0.4.3"
+VERSION="$(node -p "require('./package.json').version" 2>/dev/null || echo 0.0.0)"
 EXT_ID="${PUBLISHER}.${NAME}-${VERSION}"
 
 install_symlink() {

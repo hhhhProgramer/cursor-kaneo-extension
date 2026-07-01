@@ -1,87 +1,64 @@
-# Kaneo — Start Work (extensión Cursor / VS Code)
+# Kaneo — Start Work
 
-Panel **estilo Atlassian/Jira** para Kaneo self-hosted: **secciones guardadas** con KQL, iconos por convención de título, detalle de tarea con fechas/etiquetas, y **Start Work** con prefix, origin, push y transición.
+Extensión para **Cursor** y **VS Code** que conecta con [Kaneo](https://kaneo.app) self-hosted: panel de actividades estilo Jira/Atlassian, filtros KQL, detalle de tarea y **Start Work** (rama Git, push opcional, transición de estado).
+
+Versión actual: **0.4.3**
+
+## Requisitos
+
+- Cursor ≥ 1.85 o VS Code ≥ 1.85
+- VPN / acceso a tu instancia Kaneo
+- API key Kaneo (`kaneo.apiKey`, `API_KEY` o `~/.config/kaneo/api-key`)
+- Repositorio Git en el workspace (para Start Work)
 
 ## Instalación
 
+### Opción A — VSIX (recomendada)
+
+Descarga el `.vsix` del [último release](https://github.com/hhhhProgramer/cursor-kaneo-extension/releases) (`kaneo-branches-0.4.3.vsix`) e instálalo:
+
+**Cursor / VS Code (CLI):**
+
 ```bash
-cd ~/Documentos/Servers/cursor-kaneo-extension
-./install.sh
+cursor --install-extension kaneo-branches-0.4.3.vsix
+# o
+code --install-extension kaneo-branches-0.4.3.vsix
 ```
 
-**Developer: Reload Window** en Cursor.
+**Desde la UI:** Extensions → menú `…` → **Install from VSIX…** → elige el archivo.
 
-## Uso
+Luego **Developer: Reload Window**.
 
-1. Icono **Kaneo** → pestaña **Actividades**
-2. **Secciones** colapsables (por defecto: *Asignadas a mí*, *Sin asignar*); botón **+ Sección** para crear consultas KQL propias
-3. Filtro **KQL** global y chips rápidos
-4. Tarjetas con icono de tipo (Bug/PBI/Spike/Chore por prefijo en el título), estado, prioridad, vencimiento
-5. **Clic en una actividad** → pestaña del editor con detalle completo y Start Work
+### Opción B — Compilar e instalar desde el repo
 
-### Secciones (estilo Atlassian)
+```bash
+git clone https://github.com/hhhhProgramer/cursor-kaneo-extension.git
+cd cursor-kaneo-extension
+npm run package      # genera dist/kaneo-branches-<version>.vsix
+npm run install:vsix # instala el VSIX en cursor o code
+```
 
-Cada sección guarda una consulta KQL y un icono. Las predeterminadas son:
+### Opción C — Desarrollo (symlink)
 
-| Sección | KQL |
-|---------|-----|
-| Asignadas a mí | `assignee = me` |
-| Sin asignar | `assignee is empty` |
+Para iterar sin empaquetar en cada cambio:
 
-Puedes añadir N secciones personalizadas (p. ej. `status = in-progress AND priority = high`).
+```bash
+./install.sh
+# Developer: Reload Window
+```
 
-### Tipos de tarea (convención en el título)
-
-Kaneo es **kanban tipo Trello** — no tiene tipos Bug/PBI nativos. La extensión infiere el icono del prefijo:
-
-| Prefijo en título | Icono |
-|-------------------|-------|
-| `Bug:`, `Fix:`, `Hotfix:` | Bug |
-| `PBI:`, `Story:`, `Epic:` | PBI / Story |
-| `Spike:`, `Research:` | Spike |
-| `Chore:`, `Docs:`, `Refactor:` | Chore |
-| (sin prefijo) | Tarea genérica |
-
-### KQL (estilo Jira)
-
-| Ejemplo | Significado |
-|---------|-------------|
-| `status = to-do` | Solo To Do |
-| `status in (to-do, in-progress)` | Varias columnas |
-| `priority = high` | Prioridad alta |
-| `assignee = me` | Asignadas a tu usuario Kaneo |
-| `assignee is empty` | Sin asignar |
-| `text ~ sprites` | Busca en título/descripción |
-| `key = LDS-1` | Por clave |
-| `dueDate >= 2026-06-01` | Por fecha de vencimiento |
-| `status = to-do AND priority = high` | Combinado |
-
-### Detalle de tarea (pestaña del editor)
-
-- Tipo, clave, estado, asignado, prioridad
-- **Fechas** de inicio y vencimiento (editables)
-- Etiquetas y enlaces externos (solo lectura desde Kaneo)
-- Descripción con **Markdown**
-- Panel **Desarrollo**: rama, push, PR, enlaces GitHub
-- Si abres la tarea en **otro equipo** sin vínculo local, la rama se **infiere del comentario** de Start Work en Kaneo
-
-### Start Work
-
-- **Prefix** — `feature`, `fix`, `hotfix`, …
-- **Nombre de rama** — editable
-- **Base** — rama por defecto del repo
-- **Origin** — remoto Git
-- ☑ **Push a origin** tras crear
-- ☑ **Cambiar estado → In Progress**
+Enlaza el repo en `~/.cursor/extensions/hhhh.kaneo-branches-<version>`.
 
 ## Configuración
+
+Copia `.vscode/settings.recommended.json` a tu `settings.json` o configura manualmente:
 
 ```json
 {
   "kaneo.apiBaseUrl": "http://10.8.0.1:8100",
-  "kaneo.workspaceId": "5DG8UBlNeHSrptkr2AzUaiefVsnkHFYv",
-  "kaneo.projectId": "grk4xqmn4ubq3223renhmdbo",
-  "kaneo.userId": "opcional-si-assignee-me",
+  "kaneo.apiKey": "",
+  "kaneo.workspaceId": "tu-workspace-id",
+  "kaneo.projectId": "tu-project-id",
   "kaneo.userEmail": "tu@email.com",
   "kaneo.branchPattern": "{slug}-{number}-{title}",
   "kaneo.branchTypes": ["feature", "fix", "hotfix", "chore"],
@@ -89,10 +66,79 @@ Kaneo es **kanban tipo Trello** — no tiene tipos Bug/PBI nativos. La extensió
 }
 ```
 
-API key: `kaneo.apiKey` o variable `API_KEY`.
+| Setting | Descripción |
+|---------|-------------|
+| `kaneo.apiKey` | API key. Vacío → `API_KEY`, `KANEO_API_KEY` o `~/.config/kaneo/api-key` |
+| `kaneo.userId` / `kaneo.userEmail` | Para `assignee = me` en KQL |
+| `kaneo.commentBranchOnStartWork` | Comenta la rama en la tarea Kaneo |
+| `kaneo.storeBranchLink` | Vincula rama ↔ tarea en el panel Desarrollo |
 
-## Notas
+**No commitees la API key.** Mantén los IDs de workspace/proyecto en settings locales si el repo es público.
 
-- Kaneo no tiene JQL nativo; **KQL** filtra en cliente sobre las tareas del proyecto.
-- `assignee = me` usa `kaneo.userId`, caché global o selección de miembro del workspace.
-- Push y transición de estado funcionan sin webhook GitHub.
+## Uso
+
+1. Icono **Kaneo** en la barra lateral → **Actividades**
+2. Elige proyecto (icono carpeta en la barra del panel)
+3. Secciones colapsables con KQL; filtro global y chips rápidos
+4. Clic en una tarea → detalle en el editor (estado, fechas, comentarios, Start Work)
+
+### KQL (filtro en cliente)
+
+| Ejemplo | Significado |
+|---------|-------------|
+| `status = to-do` | Columna To Do |
+| `assignee = me` | Asignadas a ti |
+| `assignee is empty` | Sin asignar |
+| `text ~ sprites` | Busca en título/descripción |
+| `status = in-progress AND priority = high` | Combinado |
+
+### Start Work
+
+- Prefix (`feature`, `fix`, …), nombre de rama, rama base, remote
+- Push al remote (opcional; revisa el checkbox antes de confirmar)
+- Transición a In Progress y asignación opcional
+
+### Tipos de tarea (por prefijo en el título)
+
+| Prefijo | Icono |
+|---------|-------|
+| `Bug:`, `Fix:`, `Hotfix:` | Bug |
+| `PBI:`, `Story:`, `Epic:` | Story |
+| `Spike:`, `Research:` | Spike |
+| `Chore:`, `Docs:`, `Refactor:` | Chore |
+
+## Desarrollo y release
+
+```bash
+npm run package    # VSIX en dist/
+npm run install:dev  # symlink para desarrollo
+```
+
+### CI (GitHub Actions)
+
+El workflow [`.github/workflows/release.yml`](.github/workflows/release.yml):
+
+1. En cada push a `main`: empaqueta el **VSIX** y lo sube como artifact
+2. Crea el tag `v<version>` según `package.json` (si no existe)
+3. En push de tag `v*`: publica un **GitHub Release** con el VSIX adjunto
+
+Para publicar una nueva versión:
+
+1. Sube `version` en `package.json`
+2. Commit y push a `main`
+3. El pipeline crea el tag y el release automáticamente
+
+Tags existentes: `v0.3.0`, `v0.3.1`, `v0.4.3` (según releases).
+
+## Comandos
+
+| Comando | Acción |
+|---------|--------|
+| `Kaneo: Mostrar panel` | Enfoca el sidebar |
+| `Kaneo: Actualizar board` | Refresca tareas |
+| `Kaneo: Elegir proyecto` | Selector workspace/proyecto |
+| `Kaneo: Start Work` | Start Work desde paleta |
+
+## Licencia
+
+MIT — ver [LICENSE](LICENSE).

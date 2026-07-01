@@ -1,0 +1,11 @@
+.git/**
+.github/**
+.engram/**
+.vscode/**
+node_modules/**
+dist/**
+*.vsix
+.DS_Store
+install.sh
+.gitignore
+scripts/**
