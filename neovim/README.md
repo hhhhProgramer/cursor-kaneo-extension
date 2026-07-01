@@ -71,6 +71,8 @@ require("kaneo").setup({
   project_id = "...",
   user_email = "tu@email.com",
   push_on_start_work = false,
+  git_provider = "gitlab",       -- auto | github | gitlab | gitea | generic
+  git_web_base_url = "https://gitlab.tu-empresa.com",
 })
 ```
 

@@ -7,11 +7,21 @@ local ui = require("kaneo.ui")
 local M = {}
 
 local function format_branch_comment(opts)
+  local remote_git = require("kaneo.remote_git")
+  local config = require("kaneo.config")
+  local remote = remote_git.parse_remote(opts.remote_url or "", config.git_remote_opts())
+  local label = remote and remote_git.provider_label(remote.provider) or "Git"
+  local mr_label = remote and remote.provider == "gitlab" and "Merge Request" or "Pull Request"
   local lines = { "**Start Work** (Neovim)" }
-  if opts.github_url then
-    table.insert(lines, "- **Branch:** [`" .. opts.branch_name .. "`](" .. opts.github_url .. ")")
+  local web = opts.branch_web_url or opts.github_url
+  if web then
+    table.insert(lines, "- **Branch:** [`" .. opts.branch_name .. "`](" .. web .. ")")
+    table.insert(lines, "- **" .. label .. ":** [Abrir rama](" .. web .. ")")
   else
     table.insert(lines, "- **Branch:** `" .. opts.branch_name .. "`")
+  end
+  if opts.merge_request_url then
+    table.insert(lines, "- **MR/PR:** [Abrir " .. mr_label .. "](" .. opts.merge_request_url .. ")")
   end
   if opts.base_ref then
     table.insert(lines, "- **Base:** `" .. opts.base_ref .. "`")
@@ -114,7 +124,8 @@ function M.run(task, opts)
     end
   end
 
-  local github_url = git.github_branch_url(remote_url, branch_name)
+  local web_url = git.branch_web_url(remote_url, branch_name)
+  local mr_url = git.merge_request_url(remote_url, branch_name, base_ref)
   if cfg.store_branch_link then
     storage.set_branch_link(task.id, {
       branchName = branch_name,
@@ -122,7 +133,9 @@ function M.run(task, opts)
       remoteUrl = remote_url,
       baseRef = base_ref,
       repoPath = g.root,
-      githubUrl = github_url,
+      branchWebUrl = web_url,
+      githubUrl = web_url,
+      mergeRequestUrl = mr_url,
       onOrigin = do_push or git.branch_exists(g.root, branch_name, remote_name),
     })
   end
@@ -131,7 +144,10 @@ function M.run(task, opts)
     pcall(api.create_comment, task.id, format_branch_comment({
       branch_name = branch_name,
       base_ref = base_ref,
-      github_url = github_url,
+      remote_url = remote_url,
+      branch_web_url = web_url,
+      github_url = web_url,
+      merge_request_url = mr_url,
     }))
   end
 

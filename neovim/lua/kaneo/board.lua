@@ -147,9 +147,16 @@ function M.open_task_detail(task)
     "## Desarrollo",
   }
   if link and link.branchName then
+    local remote_git = require("kaneo.remote_git")
+    local remote = remote_git.parse_remote(link.remoteUrl or "", require("kaneo.config").git_remote_opts())
+    local label = remote and remote_git.provider_label(remote.provider) or "Git"
+    local web = link.branchWebUrl or link.githubUrl
     table.insert(lines, "- Rama: `" .. link.branchName .. "`")
-    if link.githubUrl then
-      table.insert(lines, "- GitHub: " .. link.githubUrl)
+    if web then
+      table.insert(lines, "- " .. label .. ": " .. web)
+    end
+    if link.mergeRequestUrl then
+      table.insert(lines, "- MR/PR: " .. link.mergeRequestUrl)
     end
   else
     table.insert(lines, "(sin rama vinculada — usa Start Work)")

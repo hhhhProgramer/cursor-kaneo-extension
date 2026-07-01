@@ -18,6 +18,8 @@ M.defaults = {
   dashboard_path = "/dashboard/workspace/{workspaceId}/project/{projectId}/board",
   global_kql = "",
   push_on_start_work = false,
+  git_provider = "auto",
+  git_web_base_url = "",
 }
 
 M.options = {}
@@ -28,6 +30,14 @@ end
 
 function M.get()
   return M.options
+end
+
+function M.git_remote_opts()
+  local o = M.options
+  return {
+    provider = o.git_provider or "auto",
+    web_base_url = o.git_web_base_url or "",
+  }
 end
 
 function M.resolve_api_key()

@@ -5,7 +5,7 @@ const kaneo = require("./kaneoClient");
 const { buildBranchName, createAndCheckoutBranch } = require("./branch");
 const { getGitInfo, pushBranch } = require("./gitInfo");
 const { getGitWorkspaceFolder } = require("./gitWorkspace");
-const { setBranchLink, formatBranchComment, githubBranchUrl, resolvePullRequestUrl } = require("./branchLink");
+const { setBranchLink, formatBranchComment, parseRemote, branchWebUrl, resolveMergeRequestUrl, getGitRemoteOpts, providerLabel } = require("./branchLink");
 const { branchExistsOnRemote } = require("./gitInfo");
 
 /**
@@ -74,14 +74,17 @@ async function executeStartWork({ task, project, git, workspaceId, context }, ms
     }
 
     const linkBranch = msg.linkBranch !== false;
-    const githubUrl = githubBranchUrl(remoteUrl, branchName);
+    const gitOpts = getGitRemoteOpts(context);
+    const parsedRemote = parseRemote(remoteUrl, gitOpts);
+    const webUrl = parsedRemote ? branchWebUrl(parsedRemote, branchName) : null;
     const onOriginAfter =
       msg.push || (await branchExistsOnRemote(folder, branchName, remoteName));
-    const pullRequestUrl = await resolvePullRequestUrl({
+    const pullRequestUrl = await resolveMergeRequestUrl({
       remoteUrl,
       branchName,
       baseRef,
       onOrigin: onOriginAfter,
+      ...gitOpts,
     });
     if (linkBranch && context) {
       if (config.storeBranchLink) {
@@ -91,7 +94,8 @@ async function executeStartWork({ task, project, git, workspaceId, context }, ms
           remoteUrl,
           baseRef,
           repoPath: folder.fsPath,
-          githubUrl: githubUrl || undefined,
+          branchWebUrl: webUrl || undefined,
+          githubUrl: webUrl || undefined,
           pullRequestUrl: pullRequestUrl || undefined,
           onOrigin: onOriginAfter,
         });
@@ -107,8 +111,9 @@ async function executeStartWork({ task, project, git, workspaceId, context }, ms
               remoteUrl,
               baseRef,
               repoPath: folder.fsPath,
-              githubUrl: githubUrl || undefined,
+              branchWebUrl: webUrl || undefined,
               pullRequestUrl: pullRequestUrl || undefined,
+              gitProvider: gitOpts.provider,
             }),
           );
         } catch (e) {

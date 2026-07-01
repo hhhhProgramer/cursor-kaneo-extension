@@ -100,29 +100,39 @@ function M.push(root, branch_name, remote)
   M.run_git(root, "push", "-u", remote, branch_name)
 end
 
+-- backward-compatible wrappers
 function M.parse_github_repo(remote_url)
-  if not remote_url or remote_url == "" then
+  local remote_git = require("kaneo.remote_git")
+  local config = require("kaneo.config")
+  local remote = remote_git.parse_remote(remote_url, config.git_remote_opts())
+  if not remote then
     return nil
   end
-  local owner, repo = remote_url:match("github%.com[:/]([^/]+)/([^/.]+)")
-  if not owner then
-    return nil
-  end
-  repo = repo:gsub("%.git$", "")
-  return { owner = owner, repo = repo }
+  return { owner = remote.owner_path, repo = remote.repo }
 end
 
 function M.github_branch_url(remote_url, branch_name)
-  local repo = M.parse_github_repo(remote_url)
-  if not repo or not branch_name then
+  local remote_git = require("kaneo.remote_git")
+  local config = require("kaneo.config")
+  local remote = remote_git.parse_remote(remote_url, config.git_remote_opts())
+  if not remote then
     return nil
   end
-  local ref = branch_name:gsub("[^/]+", function(seg)
-    return (seg:gsub("([^%w%-%.%_%~])", function(c)
-      return string.format("%%%02X", string.byte(c))
-    end))
-  end)
-  return string.format("https://github.com/%s/%s/tree/%s", repo.owner, repo.repo, ref)
+  return remote_git.branch_web_url(remote, branch_name)
+end
+
+function M.branch_web_url(remote_url, branch_name)
+  return M.github_branch_url(remote_url, branch_name)
+end
+
+function M.merge_request_url(remote_url, branch_name, base_ref)
+  local remote_git = require("kaneo.remote_git")
+  local config = require("kaneo.config")
+  local remote = remote_git.parse_remote(remote_url, config.git_remote_opts())
+  if not remote then
+    return nil
+  end
+  return remote_git.merge_request_new_url(remote, base_ref, branch_name)
 end
 
 function M.open_external(url)

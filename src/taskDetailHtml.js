@@ -411,10 +411,12 @@ function getTaskDetailHtml(webview) {
     const bl = state.branchLink;
     if (bl && bl.branchName) {
       const tag = bl.detected ? ' (rama actual)' : (bl.fromComment ? ' (Kaneo)' : '');
-      const ghUrl = bl.githubUrl || '';
+      const ghUrl = bl.branchWebUrl || bl.githubUrl || '';
+      const prov = bl.providerLabel || 'Git';
+      const mrLabel = (bl.gitProvider === 'gitlab') ? 'Merge Request' : 'Pull Request';
       const branchLine =
         ghUrl
-          ? '<a href="' + escAttr(ghUrl) + '" class="dev-branch-link" data-external title="Abrir rama en GitHub">' +
+          ? '<a href="' + escAttr(ghUrl) + '" class="dev-branch-link" data-external title="Abrir rama en ' + esc(prov) + '">' +
             esc(bl.branchName) + esc(tag) + ' ' + ico('external') + '</a>'
           : '<div class="dev-branch">' + esc(bl.branchName) + esc(tag) + '</div>';
       const statusCls = bl.onOrigin ? 'dev-status-remote' : 'dev-status-local';
@@ -425,24 +427,24 @@ function getTaskDetailHtml(webview) {
       if (bl.fromComment && !bl.detected) {
         statusHint = '<div class="dev-hint">Rama inferida del comentario de Start Work en Kaneo.</div>';
       } else if (!bl.onOrigin) {
-        statusHint = '<div class="dev-hint">Haz push para abrir rama y PR en GitHub.</div>';
+        statusHint = '<div class="dev-hint">Haz push para abrir rama y ' + esc(mrLabel) + ' en ' + esc(prov) + '.</div>';
       }
       let actions = '';
-      if (bl.hasGithub) {
+      if (bl.hasRemoteWeb || bl.hasGithub) {
         actions = '<div class="dev-actions">';
         if (bl.onOrigin) {
           if (ghUrl) {
             actions += '<button type="button" class="btn btn-secondary btn-sm" id="btn-dev-github">' + ico('external') + ' Rama</button>';
           }
-          actions += '<button type="button" class="btn btn-secondary btn-sm" id="btn-dev-pr">' + ico('pullRequest') + ' Pull Request</button>';
+          actions += '<button type="button" class="btn btn-secondary btn-sm" id="btn-dev-pr">' + ico('pullRequest') + ' ' + esc(mrLabel) + '</button>';
         } else if (bl.fromComment && ghUrl) {
-          actions += '<button type="button" class="btn btn-secondary btn-sm" id="btn-dev-github">' + ico('external') + ' Rama en GitHub</button>';
+          actions += '<button type="button" class="btn btn-secondary btn-sm" id="btn-dev-github">' + ico('external') + ' Rama en ' + esc(prov) + '</button>';
         } else {
           actions += '<button type="button" class="btn btn-primary btn-sm" id="btn-dev-push">' + ico('branch') + ' Push</button>';
         }
         actions += '</div>';
       } else if (ghUrl) {
-        actions = '<div class="dev-actions"><a href="' + escAttr(ghUrl) + '" class="dev-github" data-external>' + ico('external') + ' Abrir en GitHub</a></div>';
+        actions = '<div class="dev-actions"><a href="' + escAttr(ghUrl) + '" class="dev-github" data-external>' + ico('external') + ' Abrir en ' + esc(prov) + '</a></div>';
       }
       devHtml =
         '<div class="dev-block">' +
@@ -456,7 +458,7 @@ function getTaskDetailHtml(webview) {
       devHtml =
         '<div class="dev-block">' +
         '<div class="label-row">' + ico('branch') + '<span>Desarrollo</span></div>' +
-        '<div class="dev-hint">Sin rama vinculada. Usa Start Work o configura la integración GitHub en Kaneo para enlazar pushes/PRs automáticamente.</div>' +
+        '<div class="dev-hint">Sin rama vinculada. Usa Start Work o configura la integración Git en Kaneo para enlazar pushes/MRs automáticamente.</div>' +
         '</div>';
     }
 
@@ -531,8 +533,8 @@ function getTaskDetailHtml(webview) {
     const pushBtn = document.getElementById('btn-dev-push');
     if (pushBtn) pushBtn.onclick = () => vscode.postMessage({ type: 'pushBranch' });
     const ghBtn = document.getElementById('btn-dev-github');
-    if (ghBtn && state.branchLink && state.branchLink.githubUrl) {
-      ghBtn.onclick = () => vscode.postMessage({ type: 'openExternal', url: state.branchLink.githubUrl });
+    if (ghBtn && state.branchLink && (state.branchLink.branchWebUrl || state.branchLink.githubUrl)) {
+      ghBtn.onclick = () => vscode.postMessage({ type: 'openExternal', url: state.branchLink.branchWebUrl || state.branchLink.githubUrl });
     }
   }
 

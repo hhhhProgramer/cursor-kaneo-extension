@@ -49,6 +49,8 @@ npm run install:vsix
 
 Configuración en `settings.json` — ver `.vscode/settings.recommended.json`.
 
+**Git (GitHub / GitLab / self-hosted):** `kaneo.gitProvider` (`auto` por defecto) y opcional `kaneo.gitWebBaseUrl` para GitLab/Gitea autohosted. Con `auto`, detecta por remote (`github.com`, hostnames con `gitlab`, etc.).
+
 ---
 
 ## Neovim

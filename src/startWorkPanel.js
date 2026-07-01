@@ -197,7 +197,7 @@ class StartWorkPanelManager {
         : Promise.resolve(null),
     ]);
 
-    const { getBranchLink, branchMatchesTask, githubBranchUrl, resolvePullRequestUrl, parseGithubRepo, parseBranchFromComments } =
+    const { getBranchLink, branchMatchesTask, parseRemote, branchWebUrl, resolveMergeRequestUrl, parseBranchFromComments, getGitRemoteOpts, providerLabel } =
       require("./branchLink");
     const { branchExistsOnRemote } = require("./gitInfo");
     const storedLink = getBranchLink(this.context, taskId);
@@ -215,6 +215,7 @@ class StartWorkPanelManager {
           }
         : null) ||
       commentLink;
+    const gitOpts = getGitRemoteOpts(this.context);
     if (branchLink) {
       const remoteName = branchLink.remoteName || git?.originName || "origin";
       const remoteUrl = branchLink.remoteUrl || git?.originUrl || "";
@@ -222,22 +223,30 @@ class StartWorkPanelManager {
       const onOrigin = folder
         ? await branchExistsOnRemote(folder, branchLink.branchName, remoteName)
         : Boolean(branchLink.onOrigin);
-      const githubUrl = branchLink.githubUrl || githubBranchUrl(remoteUrl, branchLink.branchName);
-      const pullRequestUrl = await resolvePullRequestUrl({
+      const parsedRemote = parseRemote(remoteUrl, gitOpts);
+      const webUrl =
+        branchLink.branchWebUrl ||
+        branchLink.githubUrl ||
+        (parsedRemote ? branchWebUrl(parsedRemote, branchLink.branchName) : null);
+      const pullRequestUrl = await resolveMergeRequestUrl({
         remoteUrl,
         branchName: branchLink.branchName,
         baseRef,
         onOrigin,
+        ...gitOpts,
       });
       branchLink = {
         ...branchLink,
         remoteName,
         remoteUrl,
         baseRef,
-        githubUrl: githubUrl || undefined,
+        branchWebUrl: webUrl || undefined,
+        githubUrl: webUrl || undefined,
         onOrigin,
         pullRequestUrl: pullRequestUrl || undefined,
-        hasGithub: Boolean(parseGithubRepo(remoteUrl)),
+        gitProvider: parsedRemote?.provider || "generic",
+        providerLabel: providerLabel(parsedRemote?.provider || "generic"),
+        hasRemoteWeb: Boolean(parsedRemote && webUrl),
       };
     }
 
@@ -342,14 +351,15 @@ class StartWorkPanelManager {
       }
     }
 
-    const prUrl = await resolvePullRequestUrl({
+    const prUrl = await resolveMergeRequestUrl({
       remoteUrl,
       branchName: bl.branchName,
       baseRef: bl.baseRef || git.defaultBase,
       onOrigin,
+      ...getGitRemoteOpts(this.context),
     });
     if (!prUrl) {
-      vscode.window.showWarningMessage("No se pudo abrir el PR (¿remote de GitHub?).");
+      vscode.window.showWarningMessage("No se pudo abrir el MR/PR (¿remote Git soportado?).");
       return;
     }
     await vscode.env.openExternal(vscode.Uri.parse(prUrl));

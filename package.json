@@ -2,7 +2,7 @@
   "name": "kaneo-branches",
   "displayName": "Kaneo — Start Work",
   "description": "Panel Kaneo estilo Jira/Atlassian: tareas por columna, KQL, Start Work con prefix, origin y push.",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "publisher": "hhhh",
   "license": "MIT",
   "repository": {
@@ -152,6 +152,17 @@
         "kaneo.dashboardPath": {
           "type": "string",
           "default": "/dashboard/workspace/{workspaceId}/project/{projectId}/board"
+        },
+        "kaneo.gitProvider": {
+          "type": "string",
+          "enum": ["auto", "github", "gitlab", "gitea", "generic"],
+          "default": "auto",
+          "description": "Tipo de hosting Git para URLs de rama y MR/PR. auto = detectar por remote (github.com, gitlab*, etc.)."
+        },
+        "kaneo.gitWebBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "URL web del Git self-hosted (si difiere del remote). Ej: https://gitlab.empresa.com"
         }
       }
     }
