@@ -71,7 +71,7 @@ function M.request(path, init)
   if init.body then
     table.insert(headers, "Content-Type: application/json")
   end
-  local args = { "curl", "-sS", "-X", method, url }
+  local args = { "curl", "-sS", "-m", "20", "-X", method, url }
   for _, h in ipairs(headers) do
     table.insert(args, "-H")
     table.insert(args, h)

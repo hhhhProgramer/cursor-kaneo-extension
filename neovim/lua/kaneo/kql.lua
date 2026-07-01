@@ -33,6 +33,17 @@ local function split_top_level(input, op)
   return parts
 end
 
+local function is_empty(val)
+  return val == nil or val == vim.NIL or val == "" or val == "null"
+end
+
+local function field_string(val)
+  if is_empty(val) then
+    return ""
+  end
+  return tostring(val)
+end
+
 local function get_field(task, field, ctx)
   field = field:lower()
   if field == "status" then
@@ -44,7 +55,12 @@ local function get_field(task, field, ctx)
   elseif field == "key" then
     return tasks.task_key(task, ctx.project_slug)
   elseif field == "assignee" then
-    return task.assigneeName or task.userId or task.assigneeId or ""
+    for _, key in ipairs({ "assigneeName", "userId", "assigneeId" }) do
+      if not is_empty(task[key]) then
+        return tostring(task[key])
+      end
+    end
+    return ""
   elseif field == "duedate" or field == "due" then
     return task.dueDate or ""
   elseif field == "startdate" or field == "start" then
@@ -74,14 +90,23 @@ local function compile_clause(clause, ctx)
     end
   end
 
-  local field_is, empty_kind = clause:match("^(%w+)%s+is%s+(empty|not%s+empty)%s*$")
-  if field_is then
-    local field = field_is:lower()
-    local want_empty = empty_kind:lower() == "empty"
+  local field_is_ne = clause:match("^(%w+)%s+is%s+not%s+empty%s*$")
+  if field_is_ne then
+    local field = field_is_ne:lower()
     return function(task)
       local val = get_field(task, field, ctx)
-      local empty = val == nil or val == "" or val == "null"
-      return want_empty and empty or not empty
+      local empty = is_empty(val)
+      return not empty
+    end
+  end
+
+  local field_is_e = clause:match("^(%w+)%s+is%s+empty%s*$")
+  if field_is_e then
+    local field = field_is_e:lower()
+    return function(task)
+      local val = get_field(task, field, ctx)
+      local empty = is_empty(val)
+      return empty
     end
   end
 
@@ -94,22 +119,27 @@ local function compile_clause(clause, ctx)
     end
   end
 
-  local field, op, expected = clause:match("^(%w+)%s*(=|!=)%s*(.+)$")
-  if field then
-    expected = strip_quotes(expected):lower()
+  local field_ne, expected_ne = clause:match("^(%w+)%s*!=%s*(.+)$")
+  if field_ne then
+    expected_ne = strip_quotes(expected_ne):lower()
+    local field = field_ne:lower()
     return function(task)
-      if field:lower() == "assignee" and expected == "me" and ctx.user_id and ctx.user_id ~= "" then
-        local actual = tostring(task.userId or task.assigneeId or "")
-        if op == "=" then
-          return actual == ctx.user_id
-        end
-        return actual ~= ctx.user_id
+      if field == "assignee" and expected_ne == "me" and ctx.user_id and ctx.user_id ~= "" then
+        return field_string(task.userId or task.assigneeId) ~= ctx.user_id
       end
-      local actual = tostring(get_field(task, field, ctx)):lower()
-      if op == "=" then
-        return actual == expected
+      return tostring(get_field(task, field, ctx)):lower() ~= expected_ne
+    end
+  end
+
+  local field_eq, expected_eq = clause:match("^(%w+)%s*=%s*(.+)$")
+  if field_eq then
+    expected_eq = strip_quotes(expected_eq):lower()
+    local field = field_eq:lower()
+    return function(task)
+      if field == "assignee" and expected_eq == "me" and ctx.user_id and ctx.user_id ~= "" then
+        return field_string(task.userId or task.assigneeId) == ctx.user_id
       end
-      return actual ~= expected
+      return tostring(get_field(task, field, ctx)):lower() == expected_eq
     end
   end
 
