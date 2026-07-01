@@ -1,0 +1,7 @@
+{
+  "kaneo.apiBaseUrl": "http://10.8.0.1:8100",
+  "kaneo.workspaceId": "5DG8UBlNeHSrptkr2AzUaiefVsnkHFYv",
+  "kaneo.projectId": "grk4xqmn4ubq3223renhmdbo",
+  "kaneo.branchPattern": "{slug}-{number}-{title}",
+  "kaneo.moveToInProgressOnStartWork": true
+}

@@ -1,0 +1,137 @@
+{
+  "name": "kaneo-branches",
+  "displayName": "Kaneo — Start Work",
+  "description": "Panel Kaneo estilo Jira/Atlassian: tareas por columna, KQL, Start Work con prefix, origin y push.",
+  "version": "0.3.0",
+  "publisher": "hhhh",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other", "SCM Providers"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./src/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "kaneo",
+          "title": "Kaneo",
+          "icon": "icons/kaneo.svg"
+        }
+      ]
+    },
+    "views": {
+      "kaneo": [
+        {
+          "type": "webview",
+          "id": "kaneo.board",
+          "name": "Actividades"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "kaneo.focus",
+        "title": "Kaneo: Mostrar panel",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "kaneo.refresh",
+        "title": "Kaneo: Actualizar board",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "kaneo.startWork",
+        "title": "Kaneo: Start Work",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "kaneo.selectProject",
+        "title": "Kaneo: Elegir proyecto",
+        "icon": "$(folder)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "kaneo.refresh",
+          "when": "view == kaneo.board",
+          "group": "navigation"
+        },
+        {
+          "command": "kaneo.selectProject",
+          "when": "view == kaneo.board",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Kaneo",
+      "properties": {
+        "kaneo.apiBaseUrl": {
+          "type": "string",
+          "default": "http://10.8.0.1:8100",
+          "description": "URL base Kaneo (VPN). Sin /api."
+        },
+        "kaneo.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key Kaneo. Vacío = API_KEY / KANEO_API_KEY / ~/.config/kaneo/api-key"
+        },
+        "kaneo.workspaceId": {
+          "type": "string",
+          "default": "5DG8UBlNeHSrptkr2AzUaiefVsnkHFYv"
+        },
+        "kaneo.projectId": {
+          "type": "string",
+          "default": "grk4xqmn4ubq3223renhmdbo"
+        },
+        "kaneo.branchPattern": {
+          "type": "string",
+          "default": "{slug}-{number}-{title}",
+          "description": "Patrón del cuerpo de rama (sin prefix feature/). Variables: {slug}, {number}, {title}."
+        },
+        "kaneo.branchTypes": {
+          "type": "array",
+          "default": ["feature", "fix", "hotfix", "chore", "docs", "refactor"],
+          "description": "Prefijos disponibles en Start Work (como Jira)."
+        },
+        "kaneo.titleSlugMaxLength": {
+          "type": "number",
+          "default": 40,
+          "minimum": 8,
+          "maximum": 80
+        },
+        "kaneo.moveToInProgressOnStartWork": {
+          "type": "boolean",
+          "default": true,
+          "description": "Marcar por defecto «Cambiar estado → In Progress»."
+        },
+        "kaneo.assignToMeOnStartWork": {
+          "type": "boolean",
+          "default": true,
+          "description": "Asignarte la tarea al moverla a In Progress con Start Work."
+        },
+        "kaneo.userId": {
+          "type": "string",
+          "default": "",
+          "description": "Tu user ID en Kaneo (workspace members). Se guarda al elegir la primera vez."
+        },
+        "kaneo.userEmail": {
+          "type": "string",
+          "default": "",
+          "description": "Tu email en Kaneo para resolver asignación automática."
+        },
+        "kaneo.inProgressStatus": {
+          "type": "string",
+          "default": "in-progress"
+        },
+        "kaneo.dashboardPath": {
+          "type": "string",
+          "default": "/dashboard/workspace/{workspaceId}/project/{projectId}/board"
+        }
+      }
+    }
+  }
+}
